@@ -80,10 +80,7 @@ export class Editor extends EventTarget {
 
   removePart(part: Part) {
     for (const w of this.wires.filter((w) => w.connects(part))) this.removeWire(w, false);
-    if (part instanceof Delay) {
-      clearTimeout(this.timers.get(part));
-      this.timers.delete(part);
-    }
+    if (part instanceof Delay) this.clearTimers(part);
     this.partsGroup.remove(part.root);
     part.dispose();
     this.parts.delete(part.id);
@@ -174,13 +171,20 @@ export class Editor extends EventTarget {
     this.emit();
   }
 
-  /** Pending delay flips, keyed by the delay that will flip. */
-  private readonly timers = new Map<Delay, ReturnType<typeof setTimeout>>();
+  /** Pending output changes, per delay. A delay may have several in flight. */
+  private readonly timers = new Map<Delay, Set<ReturnType<typeof setTimeout>>>();
+
+  private clearTimers(delay: Delay) {
+    for (const t of this.timers.get(delay) ?? []) clearTimeout(t);
+    this.timers.delete(delay);
+  }
 
   private resetDelays() {
-    for (const t of this.timers.values()) clearTimeout(t);
-    this.timers.clear();
-    for (const p of this.parts.values()) if (p instanceof Delay) p.setState(false, false);
+    for (const p of this.parts.values()) {
+      if (!(p instanceof Delay)) continue;
+      this.clearTimers(p);
+      p.setState(false, false);
+    }
   }
 
   /**
@@ -212,27 +216,22 @@ export class Editor extends EventTarget {
     }
     this.shorted = result.shorted;
 
-    // A delay whose input changed flips its output after its delay, unless
-    // the input changes back first. Each flip re-solves, which may start the
-    // next delay down the chain.
+    // A delay replays its input on its output `delayMs` later: every time IN
+    // turns on or off, OUT does the same after the delay. So a pulse of any
+    // length travels down a chain intact, however short it is. Each change
+    // re-solves, which may start the next delay down the chain.
     for (const p of this.parts.values()) {
       if (!(p instanceof Delay)) continue;
       const powered = result.energized.has(p.id);
+      if (powered === p.energized) continue;
       p.setState(powered, p.conducting);
-      const pending = this.timers.get(p);
-      if (powered === p.conducting) {
-        if (pending) clearTimeout(pending);
-        this.timers.delete(p);
-      } else if (!pending) {
-        this.timers.set(
-          p,
-          setTimeout(() => {
-            this.timers.delete(p);
-            p.setState(p.energized, !p.conducting);
-            this.simulate();
-          }, p.delayMs),
-        );
-      }
+      const pending = this.timers.get(p) ?? this.timers.set(p, new Set()).get(p)!;
+      const t = setTimeout(() => {
+        pending.delete(t);
+        p.setState(p.energized, powered);
+        this.simulate();
+      }, p.delayMs);
+      pending.add(t);
     }
 
     // Stay quiet while a signal is still travelling through delays.

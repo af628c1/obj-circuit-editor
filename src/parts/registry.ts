@@ -50,7 +50,7 @@ export const PARTS: PartInfo[] = [
   {
     type: 'delay',
     name: 'Delay',
-    description: 'Fires its OUT pin a set time after IN gets power, and stops the same time after IN goes quiet. Chain them to send a pulse along.',
+    description: 'Whatever reaches IN comes out of OUT a set time later, even a quick tap. Chain them to send a pulse along.',
     icon: `<svg viewBox="0 0 40 40" fill="none" stroke-width="2" stroke-linecap="round">
       <rect x="5" y="16" width="30" height="13" rx="2" fill="#1d6b48" stroke="#1d6b48"/>
       <rect x="10" y="12" width="20" height="10" rx="1.5" fill="#1f2329"/>

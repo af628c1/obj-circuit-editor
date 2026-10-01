@@ -23,15 +23,15 @@ function labelTexture(): THREE.CanvasTexture {
 }
 
 /**
- * Time-delay module, like a time-delay relay: once power reaches IN, it
- * starts driving OUT after `delayMs`; when IN loses power, OUT switches off
- * after the same delay. OUT is driven by the module itself, so a chain of
- * delays carries both the start and the end of a pulse. Origin is the
- * bottom of the board.
+ * Delay line: whatever happens at IN happens at OUT `delayMs` later. When IN
+ * gets power, OUT starts driving after the delay; when IN loses it, OUT
+ * stops after the delay. Pulses of any length pass through intact, and OUT
+ * is driven by the module itself, so a chain of delays carries a pulse all
+ * the way along. Origin is the bottom of the board.
  */
 export class Delay extends Part {
   delayMs = DELAY_RANGE.default;
-  /** IN currently has power (the timer is running or has fired). */
+  /** IN currently has power. */
   energized = false;
   /** OUT is currently being driven (the delay has fired). */
   conducting = false;
@@ -66,7 +66,7 @@ export class Delay extends Part {
     this.setState(false, false);
   }
 
-  /** Status light: off when idle, amber while counting down, green while firing. */
+  /** Status light: green while OUT is driven, amber while a signal is on its way, off when idle. */
   setState(energized: boolean, conducting: boolean) {
     this.energized = energized;
     this.conducting = conducting;

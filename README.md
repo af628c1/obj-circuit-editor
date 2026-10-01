@@ -11,7 +11,7 @@ Like Tinkercad Circuits, but on top of your own 3D models. Load an `.obj` file, 
 - **Moving parts.** Drag a part to slide it over the model. It stays stuck to the surface and turns to stand out of whichever face it's on. For finer control, pick **Arrows** (<kbd>W</kbd>) to move freely in 3D or **Rotate** (<kbd>E</kbd>) in the panel; **Sliding** (<kbd>Q</kbd>) is the default.
 - **Selecting.** Tap or click a part or wire to select it; the panel on the right shows its details and a Delete button (or press <kbd>Del</kbd>). Drag a part to slide it over the model.
 - **Wires.** Drag from one pin to another, or tap one pin then the other. To remove a wire, drag either end off its pin. Drop it on a different pin to move it instead. Use **X-ray** to see wiring that runs inside the model. Pins and wires have larger touch targets for fingers.
-- **Delays and signals.** A delay starts driving its OUT pin a set time (0.1–3 s, set in the panel) after its IN pin gets power, and stops the same time after IN loses it. Its status light is amber while counting down and green while firing. Chain them with an LED at each junction to send a pulse along, for example down a neuron's axon, where each delay is a node regenerating the signal:
+- **Delays and signals.** A delay replays whatever reaches its IN pin on its OUT pin a set time later (0.1–3 s, set in the panel). A quick tap comes out as a quick blip and a long press as a long one. Its status light is green while OUT is on and amber while a signal is on its way. Chain them with an LED at each junction to send a pulse along, for example down a neuron's axon, where each delay is a node regenerating the signal:
 
   ```
   battery + → switch → LED₁ → delay → LED₂ → delay → LED₃ …   (every LED's short leg → battery −)
