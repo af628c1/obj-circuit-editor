@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import './style.css';
 import { Editor } from './editor/Editor';
 import { Interaction } from './editor/interaction';
-import { fetchObj, readObjFile, setModelXray } from './scene/modelLoader';
+import { fetchModel, readModelFiles, setModelXray, type LoadedModel } from './scene/modelLoader';
 import { Viewport } from './scene/Viewport';
 import type { PartType } from './sim/circuit';
 import { mountInspector } from './ui/Inspector';
@@ -26,9 +26,15 @@ darkQuery.addEventListener('change', (e) => viewport.setDark(e.matches));
 
 const fileInput = $<HTMLInputElement>('file-input');
 
-async function loadModel(load: Promise<THREE.Group>) {
+const xray = $('xray');
+let xrayOn = false;
+
+async function loadModel(load: Promise<LoadedModel>) {
   try {
-    editor.setModel(await load);
+    const { model, warnings } = await load;
+    setModelXray(model, xrayOn);
+    editor.setModel(model);
+    for (const w of warnings) editor.toast(w, 'warn');
   } catch (err) {
     editor.toast(err instanceof Error ? err.message : 'Could not load that file.', 'warn');
   }
@@ -36,18 +42,17 @@ async function loadModel(load: Promise<THREE.Group>) {
 
 $('open-obj').addEventListener('click', () => fileInput.click());
 $('empty-open').addEventListener('click', () => fileInput.click());
-$('load-sample').addEventListener('click', () => loadModel(fetchObj(`${import.meta.env.BASE_URL}samples/enclosure.obj`)));
+$('load-sample').addEventListener('click', () => loadModel(fetchModel(`${import.meta.env.BASE_URL}samples/enclosure.obj`)));
 fileInput.addEventListener('change', () => {
-  const file = fileInput.files?.[0];
-  if (file) loadModel(readObjFile(file));
+  const files = [...(fileInput.files ?? [])];
+  if (files.length) loadModel(readModelFiles(files));
   fileInput.value = '';
 });
 
-const xray = $('xray');
 xray.addEventListener('click', () => {
-  const on = xray.getAttribute('aria-pressed') !== 'true';
-  xray.setAttribute('aria-pressed', String(on));
-  setModelXray(on);
+  xrayOn = !xrayOn;
+  xray.setAttribute('aria-pressed', String(xrayOn));
+  if (editor.model) setModelXray(editor.model, xrayOn);
 });
 
 // ---- adding parts ---------------------------------------------------------
@@ -106,8 +111,8 @@ stage.addEventListener('drop', (e) => {
     editor.addPart(type, position, normal);
     return;
   }
-  const file = e.dataTransfer?.files[0];
-  if (file) loadModel(readObjFile(file));
+  const files = [...(e.dataTransfer?.files ?? [])];
+  if (files.length) loadModel(readModelFiles(files));
 });
 
 // ---- chrome ---------------------------------------------------------------

@@ -1,0 +1,10 @@
+# Materials for the sample enclosure
+newmtl Body
+Kd 0.88 0.86 0.82
+Ks 0.15 0.15 0.15
+Ns 30
+
+newmtl Lid
+Kd 0.24 0.42 0.62
+Ks 0.25 0.25 0.25
+Ns 60

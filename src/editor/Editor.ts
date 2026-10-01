@@ -3,6 +3,7 @@ import { Button } from '../parts/Button';
 import { Led } from '../parts/Led';
 import type { Part } from '../parts/Part';
 import { partInfo } from '../parts/registry';
+import { disposeModel } from '../scene/modelLoader';
 import type { Viewport } from '../scene/Viewport';
 import { solve, type PartType } from '../sim/circuit';
 import { WIRE_COLORS, Wire, type WireEnd } from '../wires/Wire';
@@ -46,9 +47,7 @@ export class Editor extends EventTarget {
   setModel(model: THREE.Object3D) {
     if (this.model) {
       this.viewport.scene.remove(this.model);
-      this.model.traverse((o) => {
-        if (o instanceof THREE.Mesh) o.geometry.dispose();
-      });
+      disposeModel(this.model);
     }
     this.model = model;
     this.viewport.scene.add(model);
