@@ -118,15 +118,51 @@ async function buildModel(objText: string, mtlNames: string[], resolve: Resolver
   return { model, warnings };
 }
 
+const isZip = (f: File) => /\.zip$/i.test(f.name);
+/** macOS metadata that zips often carry along; never useful. */
+const isJunk = (path: string) => /(^|\/)__MACOSX\//.test(path) || /(^|\/)\._/.test(path) || /(^|\/)\.DS_Store$/.test(path);
+
+/** Replace any .zip files with the files inside them. */
+async function expandZips(files: File[]): Promise<File[]> {
+  const out: File[] = [];
+  for (const file of files) {
+    if (!isZip(file)) {
+      out.push(file);
+      continue;
+    }
+    const { unzipSync } = await import('fflate');
+    let entries: Record<string, Uint8Array>;
+    try {
+      entries = unzipSync(new Uint8Array(await file.arrayBuffer()), {
+        filter: (f) => !f.name.endsWith('/') && !isJunk(f.name),
+      });
+    } catch {
+      throw new Error(`Couldn't open "${file.name}". Is it a valid .zip?`);
+    }
+    for (const [path, data] of Object.entries(entries)) {
+      out.push(new File([data as Uint8Array<ArrayBuffer>], path.split('/').pop()!));
+    }
+  }
+  return out;
+}
+
 /**
  * Load a model from files the user picked or dropped: one .obj plus,
- * optionally, its .mtl and texture images.
+ * optionally, its .mtl and texture images. Any of these may come inside a .zip.
  */
-export async function readModelFiles(files: File[]): Promise<LoadedModel> {
-  const obj = files.find(isObj);
+export async function readModelFiles(picked: File[]): Promise<LoadedModel> {
+  const files = await expandZips(picked);
+  // If several models came along (common in zips), use the biggest one.
+  const objs = files.filter(isObj).sort((a, b) => b.size - a.size);
+  const obj = objs[0];
   if (!obj) {
+    const zipped = picked.some(isZip);
     throw new Error(
-      files.length === 1 ? `"${files[0].name}" is not an .obj file.` : 'Include an .obj file with your selection.',
+      zipped
+        ? 'No .obj file found in that .zip.'
+        : picked.length === 1
+          ? `"${picked[0].name}" is not an .obj or .zip file.`
+          : 'Include an .obj file with your selection.',
     );
   }
 
@@ -139,7 +175,9 @@ export async function readModelFiles(files: File[]): Promise<LoadedModel> {
     const refs = mtlLibs(text);
     const provided = files.filter(isMtl).map((f) => f.name);
     const mtlNames = refs.some((r) => resolve(r)) || provided.length === 0 ? refs : provided;
-    return await buildModel(text, mtlNames, resolve);
+    const result = await buildModel(text, mtlNames, resolve);
+    if (objs.length > 1) result.warnings.unshift(`Found ${objs.length} .obj files; loaded the largest, "${obj.name}".`);
+    return result;
   } finally {
     urls.forEach((u) => URL.revokeObjectURL(u));
   }
