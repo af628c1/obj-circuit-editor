@@ -129,7 +129,7 @@ function renderChrome() {
   sidebar.setEnabled(editor.mode === 'edit');
 
   if (!emptyState.hidden && editor.mode === 'edit') hint.innerHTML = '';
-  else if (editor.mode === 'simulate') hint.innerHTML = '<strong>Click and hold</strong> a push button to press it';
+  else if (editor.mode === 'simulate') hint.innerHTML = '<strong>Hold</strong> a push button to press it · <strong>tap</strong> a switch to flip it';
   else if (interaction.pending) hint.innerHTML = 'Click another pin to connect · <strong>Esc</strong> to cancel';
   else if (editor.parts.size === 0) hint.innerHTML = 'Drag components from the sidebar onto your model';
   else if (editor.selection?.kind === 'wire') hint.innerHTML = 'Drag either end off its pin to remove the wire';

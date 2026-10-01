@@ -468,6 +468,19 @@ kbd {
   font-size: 13px;
 }
 
+.inspector input[type='range'] {
+  width: 100%;
+  margin: 0;
+  accent-color: var(--accent);
+}
+
+.inspector .label .value {
+  float: right;
+  font-weight: 500;
+  font-variant-numeric: tabular-nums;
+  color: var(--text);
+}
+
 .swatches {
   display: flex;
   gap: 8px;

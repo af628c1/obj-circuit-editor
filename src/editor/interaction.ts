@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { Button } from '../parts/Button';
 import type { Part } from '../parts/Part';
+import { Switch } from '../parts/Switch';
 import type { Viewport } from '../scene/Viewport';
 import type { Wire, WireEnd } from '../wires/Wire';
 import type { Editor } from './Editor';
@@ -46,7 +47,7 @@ const UP = new THREE.Vector3(0, 1, 0);
  * - tap pin, tap pin to wire them, or drag from one pin to another
  * - drag a wire's end off its pin to remove it, or onto another pin to move it
  *
- * Simulate mode: press and hold a push button.
+ * Simulate mode: press and hold a push button, tap a switch to flip it.
  */
 export class Interaction extends EventTarget {
   readonly gizmo: TransformControls;
@@ -205,6 +206,9 @@ export class Interaction extends EventTarget {
         e.stopPropagation();
         this.gesture = { kind: 'button', button: part };
         this.editor.setButtonPressed(part, true);
+      } else if (part instanceof Switch) {
+        e.stopPropagation();
+        this.editor.toggleSwitch(part);
       }
       return;
     }
@@ -356,6 +360,11 @@ export class Interaction extends EventTarget {
   // ---- wire previews & hover ---------------------------------------------
 
   private hover(e: PointerEvent) {
+    if (this.editor.mode === 'simulate') {
+      const part = this.pickPart(e);
+      this.canvas.style.cursor = part instanceof Button || part instanceof Switch ? 'pointer' : '';
+      return;
+    }
     const hit = this.hitTest(e);
     const pin = hit?.kind === 'pin' ? hit.end : null;
     this.setHovered(pin);

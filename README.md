@@ -6,11 +6,16 @@ Like Tinkercad Circuits, but on top of your own 3D models. Load an `.obj` file, 
 
 - **Load a model.** Drop an `.obj` file onto the workspace, use **Open model**, or click **Try a sample**. The model is centered and scaled to fit.
 - **Materials.** Select or drop the `.mtl` and its texture images together with the `.obj` (pick several files at once) to keep the model's colors and textures. A `.zip` containing the model works too: folders inside it don't matter, and if it holds several `.obj` files the largest one is loaded. If something it references is missing, you'll get a heads-up, and models without an `.mtl` render in neutral grey.
-- **Components.** LED (with color choice), push button and 9V battery. Drag them from the sidebar onto the model and they land on the surface you drop them on. You can also click a component to add it.
+- **Components.** LED (with color choice), push button, toggle switch, delay module and 9V battery. Drag them from the sidebar onto the model and they land on the surface you drop them on. You can also click a component to add it.
 - **Move and rotate.** Select a part, then press <kbd>W</kbd> to move or <kbd>E</kbd> to rotate with the gizmo. <kbd>Del</kbd> deletes the selection.
 - **Selecting.** Tap or click a part or wire to select it; the panel on the right shows its details and a Delete button (or press <kbd>Del</kbd>). Drag a part to slide it over the model.
 - **Wires.** Drag from one pin to another, or tap one pin then the other. To remove a wire, drag either end off its pin. Drop it on a different pin to move it instead. Use **X-ray** to see wiring that runs inside the model. Pins and wires have larger touch targets for fingers.
-- **Simulate.** Switch to **Simulate**, then click and hold a push button. An LED lights when it sits on a closed loop from the battery's + to its − with the right polarity, so the long leg (anode) goes toward +. A short across the battery shows a warning.
+- **Delays and signals.** A delay starts driving its OUT pin a set time (0.1–3 s, set in the panel) after its IN pin gets power, and stops the same time after IN loses it. Its status light is amber while counting down and green while firing. Chain them with an LED at each junction to send a pulse along, for example down a neuron's axon, where each delay is a node regenerating the signal:
+
+  ```
+  battery + → switch → LED₁ → delay → LED₂ → delay → LED₃ …   (every LED's short leg → battery −)
+  ```
+- **Simulate.** Switch to **Simulate**, then click and hold a push button or tap a toggle switch. An LED lights when it sits on a closed loop from the battery's + to its − with the right polarity, so the long leg (anode) goes toward +. A short across the battery shows a warning.
 
 ## Development
 

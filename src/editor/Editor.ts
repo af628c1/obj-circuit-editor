@@ -1,8 +1,10 @@
 import * as THREE from 'three';
 import { Button } from '../parts/Button';
+import { Delay } from '../parts/Delay';
 import { Led } from '../parts/Led';
 import type { Part } from '../parts/Part';
 import { partInfo } from '../parts/registry';
+import { Switch } from '../parts/Switch';
 import { disposeModel } from '../scene/modelLoader';
 import type { Viewport } from '../scene/Viewport';
 import { diagnose, solve, type Diagnosis, type PartType } from '../sim/circuit';
@@ -78,6 +80,10 @@ export class Editor extends EventTarget {
 
   removePart(part: Part) {
     for (const w of this.wires.filter((w) => w.connects(part))) this.removeWire(w, false);
+    if (part instanceof Delay) {
+      clearTimeout(this.timers.get(part));
+      this.timers.delete(part);
+    }
     this.partsGroup.remove(part.root);
     part.dispose();
     this.parts.delete(part.id);
@@ -150,6 +156,7 @@ export class Editor extends EventTarget {
     this.mode = mode;
     if (mode === 'simulate') this.select(null);
     for (const p of this.parts.values()) if (p instanceof Button) p.pressed = false;
+    this.resetDelays();
     this.shorted.clear();
     this.simulate(mode === 'simulate' ? 'enter' : undefined);
     this.emit();
@@ -161,6 +168,21 @@ export class Editor extends EventTarget {
     this.simulate(pressed ? 'press' : undefined);
   }
 
+  toggleSwitch(sw: Switch) {
+    sw.closed = !sw.closed;
+    this.simulate(sw.closed ? 'press' : undefined);
+    this.emit();
+  }
+
+  /** Pending delay flips, keyed by the delay that will flip. */
+  private readonly timers = new Map<Delay, ReturnType<typeof setTimeout>>();
+
+  private resetDelays() {
+    for (const t of this.timers.values()) clearTimeout(t);
+    this.timers.clear();
+    for (const p of this.parts.values()) if (p instanceof Delay) p.setState(false, false);
+  }
+
   /**
    * Re-solve the circuit and push the result into the parts. `reason` says
    * what the user just did, so we can explain why nothing lit up.
@@ -169,12 +191,15 @@ export class Editor extends EventTarget {
     const leds = [...this.parts.values()].filter((p): p is Led => p instanceof Led);
     if (this.mode !== 'simulate') {
       for (const l of leds) l.lit = false;
+      this.resetDelays();
       return;
     }
     const parts = [...this.parts.values()].map((p) => ({
       id: p.id,
       type: p.type,
       pressed: p instanceof Button && p.pressed,
+      closed: p instanceof Switch && p.closed,
+      conducting: p instanceof Delay && p.conducting,
     }));
     const wires = this.wires.map((w) => ({
       a: { part: w.from.part.id, pin: w.from.pin },
@@ -187,7 +212,32 @@ export class Editor extends EventTarget {
     }
     this.shorted = result.shorted;
 
-    if (reason && result.lit.size === 0 && result.shorted.size === 0) {
+    // A delay whose input changed flips its output after its delay, unless
+    // the input changes back first. Each flip re-solves, which may start the
+    // next delay down the chain.
+    for (const p of this.parts.values()) {
+      if (!(p instanceof Delay)) continue;
+      const powered = result.energized.has(p.id);
+      p.setState(powered, p.conducting);
+      const pending = this.timers.get(p);
+      if (powered === p.conducting) {
+        if (pending) clearTimeout(pending);
+        this.timers.delete(p);
+      } else if (!pending) {
+        this.timers.set(
+          p,
+          setTimeout(() => {
+            this.timers.delete(p);
+            p.setState(p.energized, !p.conducting);
+            this.simulate();
+          }, p.delayMs),
+        );
+      }
+    }
+
+    // Stay quiet while a signal is still travelling through delays.
+    const inFlight = result.energized.size > 0;
+    if (reason && result.lit.size === 0 && result.shorted.size === 0 && !inFlight) {
       const d = diagnose(parts, wires);
       // On entering, an open loop is expected (buttons aren't pressed yet).
       if (reason === 'press' || d.kind === 'no-battery' || d.kind === 'no-led') this.hint(d);

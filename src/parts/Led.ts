@@ -45,8 +45,9 @@ export class Led extends Part {
     this.addPin('anode', 'Anode (+)', new THREE.Vector3(0.0125, -0.08, 0), 0xd64545);
     this.addPin('cathode', 'Cathode (−)', new THREE.Vector3(-0.0125, -0.065, 0), 0x3a3f4a);
 
-    this.glow = new THREE.PointLight(0xffffff, 0, 1.2, 2);
-    this.glow.position.set(0, 0.06, 0);
+    this.glow = new THREE.PointLight(0xffffff, 0, 0.9, 2);
+    // Above the dome rather than inside it, so the lens itself isn't blown out to white.
+    this.glow.position.set(0, 0.12, 0);
     this.root.add(this.glow);
 
     this.tagMeshes();
@@ -75,10 +76,11 @@ export class Led extends Part {
 
   private update() {
     const c = LED_COLORS[this._color];
-    this.lens.color.set(c);
+    // Unlit LEDs are a deeper, dimmer shade so lit ones clearly stand out.
+    this.lens.color.set(c).multiplyScalar(this._lit ? 1 : 0.55);
     this.lens.emissive.set(c);
-    this.lens.emissiveIntensity = this._lit ? 3 : 0.05;
+    this.lens.emissiveIntensity = this._lit ? 1 : 0;
     this.glow.color.set(c);
-    this.glow.intensity = this._lit ? 1.5 : 0;
+    this.glow.intensity = this._lit ? 0.8 : 0;
   }
 }

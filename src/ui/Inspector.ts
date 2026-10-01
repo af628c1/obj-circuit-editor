@@ -1,9 +1,12 @@
 import type { Editor } from '../editor/Editor';
 import type { Interaction } from '../editor/interaction';
+import { DELAY_RANGE, Delay } from '../parts/Delay';
 import { LED_COLORS, Led } from '../parts/Led';
 import type { Part } from '../parts/Part';
 import { partInfo } from '../parts/registry';
+import { Switch } from '../parts/Switch';
 
+const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
 /** Floating card describing the current selection. */
@@ -42,6 +45,18 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
               )
               .join('')}</div></div>`
           : '';
+      const switchRow =
+        part instanceof Switch
+          ? `<div class="row"><span class="label">State</span><div class="segmented">
+              <button data-switch="off" aria-selected="${!part.closed}">Off</button>
+              <button data-switch="on" aria-selected="${part.closed}">On</button>
+            </div></div>`
+          : '';
+      const delayRow =
+        part instanceof Delay
+          ? `<div class="row"><span class="label">Delay <span class="value" data-delay-value>${seconds(part.delayMs)}</span></span>
+              <input type="range" data-delay min="${DELAY_RANGE.min}" max="${DELAY_RANGE.max}" step="${DELAY_RANGE.step}" value="${part.delayMs}" aria-label="Delay time" /></div>`
+          : '';
       const mode = interaction.gizmoMode;
       el.innerHTML = `
         <div class="inspector-head"><h2>${partInfo(part.type).name}</h2><span class="id">${part.id}</span></div>
@@ -52,7 +67,7 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
             <button data-gizmo="rotate" aria-selected="${mode === 'rotate'}">Rotate <kbd>E</kbd></button>
           </div>
         </div>
-        ${colorRow}
+        ${colorRow}${switchRow}${delayRow}
         <div class="row">
           <span class="label">Pins</span>
           <ul class="pins">${part.pins
@@ -72,10 +87,23 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
     const sel = editor.selection;
     if (t.dataset.action === 'delete') editor.deleteSelection();
     if (t.dataset.gizmo) interaction.setGizmoMode(t.dataset.gizmo as 'translate' | 'rotate');
+    if (t.dataset.switch && sel?.kind === 'part' && sel.part instanceof Switch) {
+      sel.part.closed = t.dataset.switch === 'on';
+      render();
+    }
     if (t.dataset.color && sel?.kind === 'part' && sel.part instanceof Led) {
       sel.part.color = t.dataset.color;
       render();
     }
+  });
+
+  // Update the slider's label live without re-rendering (which would end the drag).
+  el.addEventListener('input', (e) => {
+    const input = e.target as HTMLInputElement;
+    const sel = editor.selection;
+    if (!input.matches('[data-delay]') || sel?.kind !== 'part' || !(sel.part instanceof Delay)) return;
+    sel.part.delayMs = Number(input.value);
+    el.querySelector('[data-delay-value]')!.textContent = seconds(sel.part.delayMs);
   });
 
   editor.addEventListener('change', render);

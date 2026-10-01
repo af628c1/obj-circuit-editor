@@ -95,3 +95,64 @@ describe('diagnose', () => {
     ).toEqual({ kind: 'open' });
   });
 });
+
+describe('switch and delay', () => {
+  it('a closed switch completes the loop, an open one does not', () => {
+    const wires = [w('bat:pos', 'sw:a'), w('sw:b', 'led:anode'), w('led:cathode', 'bat:neg')];
+    const parts = (closed: boolean): SimPart[] => [
+      { id: 'bat', type: 'battery' },
+      { id: 'sw', type: 'switch', closed },
+      { id: 'led', type: 'led' },
+    ];
+    expect(solve(parts(false), wires).lit.size).toBe(0);
+    expect([...solve(parts(true), wires).lit]).toEqual(['led']);
+  });
+
+  // Axon-style chain: + feeds LED 1 directly, and LED 2 through a delay.
+  const wires = [
+    w('bat:pos', 'l1:anode'),
+    w('l1:anode', 'd:in'),
+    w('d:out', 'l2:anode'),
+    w('l1:cathode', 'bat:neg'),
+    w('l2:cathode', 'bat:neg'),
+  ];
+  const parts = (conducting: boolean): SimPart[] => [
+    { id: 'bat', type: 'battery' },
+    { id: 'd', type: 'delay', conducting },
+    { id: 'l1', type: 'led' },
+    { id: 'l2', type: 'led' },
+  ];
+
+  it('a delay that has not fired yet is energized but blocks its output', () => {
+    const r = solve(parts(false), wires);
+    expect(r.lit).toEqual(new Set(['l1']));
+    expect([...r.energized]).toEqual(['d']);
+  });
+
+  it('a conducting delay powers the next stage', () => {
+    expect(solve(parts(true), wires).lit).toEqual(new Set(['l1', 'l2']));
+  });
+
+  it('a delay only passes power forwards', () => {
+    const backwards = [w('bat:pos', 'd:out'), w('d:in', 'l2:anode'), w('l2:cathode', 'bat:neg')];
+    const r = solve(parts(true), backwards);
+    expect(r.lit.size).toBe(0);
+    expect(r.energized.size).toBe(0);
+  });
+});
+
+describe('delay as a relay', () => {
+  it('keeps the next stage lit after the input goes quiet, until it stops firing', () => {
+    // The switch is off, but the delay is still firing from earlier.
+    const parts: SimPart[] = [
+      { id: 'bat', type: 'battery' },
+      { id: 'sw', type: 'switch', closed: false },
+      { id: 'd', type: 'delay', conducting: true },
+      { id: 'l2', type: 'led' },
+    ];
+    const wires = [w('bat:pos', 'sw:a'), w('sw:b', 'd:in'), w('d:out', 'l2:anode'), w('l2:cathode', 'bat:neg')];
+    const r = solve(parts, wires);
+    expect([...r.lit]).toEqual(['l2']);
+    expect(r.energized.size).toBe(0);
+  });
+});
