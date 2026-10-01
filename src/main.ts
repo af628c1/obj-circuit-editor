@@ -8,6 +8,7 @@ import { partInfo } from './parts/registry';
 import { mountInspector } from './ui/Inspector';
 import { mountSidebar, PART_MIME } from './ui/Sidebar';
 import { mountModeToggle, mountToasts } from './ui/Toolbar';
+import { watchForUpdates } from './ui/updateCheck';
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
@@ -124,6 +125,8 @@ function renderChrome() {
 editor.addEventListener('change', renderChrome);
 interaction.addEventListener('change', renderChrome);
 renderChrome();
+
+watchForUpdates(stage);
 
 // Handle for automated tests and console tinkering.
 Object.assign(window, { app: { editor, interaction, viewport } });

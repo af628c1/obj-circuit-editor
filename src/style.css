@@ -556,6 +556,27 @@ kbd {
   justify-content: flex-end;
 }
 
+/* ---- update banner ------------------------------------------------------ */
+
+.update-banner {
+  position: absolute;
+  left: 50%;
+  bottom: 64px;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 8px 8px 8px 16px;
+  border-radius: 12px;
+  background: var(--panel);
+  border: 1px solid var(--accent);
+  box-shadow: var(--shadow);
+  font-size: 14px;
+  font-weight: 550;
+  white-space: nowrap;
+  z-index: 5;
+}
+
 /* ---- toasts ------------------------------------------------------------- */
 
 .toasts {
