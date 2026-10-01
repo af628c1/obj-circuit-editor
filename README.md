@@ -6,7 +6,7 @@ Like Tinkercad Circuits, but on top of your own 3D models. Load an `.obj` file, 
 
 - **Load a model.** Drop an `.obj` file onto the workspace, use **Open model**, or click **Try a sample**. The model is centered and scaled to fit.
 - **Materials.** Select or drop the `.mtl` and its texture images together with the `.obj` (pick several files at once) to keep the model's colors and textures. A `.zip` containing the model works too: folders inside it don't matter, and if it holds several `.obj` files the largest one is loaded. If something it references is missing, you'll get a heads-up, and models without an `.mtl` render in neutral grey.
-- **Components.** LED (with color choice), push button, toggle switch, delay module and 9V battery. Drag them from the sidebar onto the model and they land on the surface you drop them on. You can also click a component to add it.
+- **Components.** LED (with color choice), push button, toggle switch, delay module and 9V battery.
 - **Placing parts.** Tap a component in the sidebar, then tap your model where you want it. It stands out of the surface you tapped. With a mouse, a see-through preview follows the cursor. Tap the card again, or press **Cancel** in the hint, to stop. Dragging a card onto the model works too.
 - **Moving parts.** Drag a part to slide it over the model. It stays stuck to the surface and turns to stand out of whichever face it's on. For finer control, pick **Arrows** (<kbd>W</kbd>) to move freely in 3D or **Rotate** (<kbd>E</kbd>) in the panel; **Sliding** (<kbd>Q</kbd>) is the default.
 - **Selecting.** Tap or click a part or wire to select it; the panel on the right shows its details and a Delete button (or press <kbd>Del</kbd>). Drag a part to slide it over the model.
