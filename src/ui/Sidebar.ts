@@ -3,7 +3,7 @@ import type { PartType } from '../sim/circuit';
 
 export const PART_MIME = 'application/x-obj-circuit-part';
 
-/** Render the component palette. Cards are draggable and clickable. */
+/** Render the component palette. Click a card to start placing it, or drag it onto the model. */
 export function mountSidebar(container: HTMLElement, onAdd: (type: PartType) => void) {
   for (const info of PARTS) {
     const card = document.createElement('button');
@@ -22,9 +22,14 @@ export function mountSidebar(container: HTMLElement, onAdd: (type: PartType) => 
     container.appendChild(card);
   }
 
+  const cards = () => container.querySelectorAll<HTMLButtonElement>('.part-card');
   return {
     setEnabled(enabled: boolean) {
-      container.querySelectorAll<HTMLButtonElement>('.part-card').forEach((c) => (c.disabled = !enabled));
+      cards().forEach((c) => (c.disabled = !enabled));
+    },
+    /** Highlight the card whose part is being placed. */
+    setActive(type: PartType | null) {
+      cards().forEach((c) => c.setAttribute('aria-pressed', String(c.dataset.type === type)));
     },
   };
 }

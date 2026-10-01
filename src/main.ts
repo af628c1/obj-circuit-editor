@@ -1,10 +1,10 @@
-import * as THREE from 'three';
 import './style.css';
 import { Editor } from './editor/Editor';
 import { Interaction } from './editor/interaction';
 import { fetchModel, readModelFiles, setModelXray, type LoadedModel } from './scene/modelLoader';
 import { Viewport } from './scene/Viewport';
 import type { PartType } from './sim/circuit';
+import { partInfo } from './parts/registry';
 import { mountInspector } from './ui/Inspector';
 import { mountSidebar, PART_MIME } from './ui/Sidebar';
 import { mountModeToggle, mountToasts } from './ui/Toolbar';
@@ -57,32 +57,8 @@ xray.addEventListener('click', () => {
 
 // ---- adding parts ---------------------------------------------------------
 
-const raycaster = new THREE.Raycaster();
-
-/** Where a part dropped at `ndc` should go: on the model if hit, else the ground. */
-function placementAt(ndc: THREE.Vector2): { position: THREE.Vector3; normal?: THREE.Vector3 } {
-  raycaster.setFromCamera(ndc, viewport.camera);
-  const hit = editor.model ? raycaster.intersectObject(editor.model, true)[0] : undefined;
-  if (hit?.face) {
-    const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-    // Models are double sided; make sure the part faces the viewer.
-    if (normal.dot(raycaster.ray.direction) > 0) normal.negate();
-    return { position: hit.point, normal };
-  }
-  const ground = raycaster.intersectObject(viewport.ground)[0];
-  return { position: ground ? ground.point : viewport.controls.target.clone() };
-}
-
-let clickAdds = 0;
-function addFromPalette(type: PartType) {
-  if (editor.mode !== 'edit') return;
-  // Fan click-added parts out a little so they don't stack on each other.
-  const spread = ((clickAdds++ % 5) - 2) * 0.12;
-  const { position, normal } = placementAt(new THREE.Vector2(spread, 0));
-  editor.addPart(type, position, normal);
-}
-
-const sidebar = mountSidebar($('palette'), addFromPalette);
+// Clicking a card arms it; the next tap on the model places it (see Interaction).
+const sidebar = mountSidebar($('palette'), (type) => interaction.startPlacing(type));
 
 // ---- drag & drop ----------------------------------------------------------
 
@@ -107,7 +83,8 @@ stage.addEventListener('drop', (e) => {
   dropOverlay.hidden = true;
   const type = e.dataTransfer?.getData(PART_MIME) as PartType | undefined;
   if (type) {
-    const { position, normal } = placementAt(viewport.ndc(e));
+    interaction.cancelPlacing();
+    const { position, normal } = interaction.surfaceAt(viewport.ndc(e));
     editor.addPart(type, position, normal);
     return;
   }
@@ -124,16 +101,23 @@ mountToasts($('toasts'), editor);
 const emptyState = $('empty-state');
 const hint = $('hint');
 
+hint.addEventListener('click', (e) => {
+  if ((e.target as HTMLElement).closest('[data-action="cancel-place"]')) interaction.cancelPlacing();
+});
+
 function renderChrome() {
   emptyState.hidden = editor.model !== null || editor.parts.size > 0;
   sidebar.setEnabled(editor.mode === 'edit');
+  sidebar.setActive(interaction.placing);
 
   if (!emptyState.hidden && editor.mode === 'edit') hint.innerHTML = '';
   else if (editor.mode === 'simulate') hint.innerHTML = '<strong>Hold</strong> a push button to press it · <strong>tap</strong> a switch to flip it';
+  else if (interaction.placing)
+    hint.innerHTML = `Tap your model to place the <strong>${partInfo(interaction.placing).name}</strong> <button data-action="cancel-place">Cancel</button>`;
   else if (interaction.pending) hint.innerHTML = 'Click another pin to connect · <strong>Esc</strong> to cancel';
-  else if (editor.parts.size === 0) hint.innerHTML = 'Drag components from the sidebar onto your model';
+  else if (editor.parts.size === 0) hint.innerHTML = 'Tap a component in the sidebar, then tap your model to place it';
   else if (editor.selection?.kind === 'wire') hint.innerHTML = 'Drag either end off its pin to remove the wire';
-  else if (editor.selection?.kind === 'part') hint.innerHTML = '<strong>Drag</strong> the part to move it · use the arrows for precise moves';
+  else if (editor.selection?.kind === 'part') hint.innerHTML = '<strong>Drag</strong> the part to slide it over your model';
   else hint.innerHTML = '<strong>Drag from a pin</strong> to another pin to wire them · tap a part or wire to select it';
 }
 

@@ -2,10 +2,12 @@ import * as THREE from 'three';
 import { TransformControls } from 'three/addons/controls/TransformControls.js';
 import { Button } from '../parts/Button';
 import type { Part } from '../parts/Part';
+import { partInfo } from '../parts/registry';
 import { Switch } from '../parts/Switch';
 import type { Viewport } from '../scene/Viewport';
 import type { Wire, WireEnd } from '../wires/Wire';
-import type { Editor } from './Editor';
+import type { PartType } from '../sim/circuit';
+import { PART_SCALE, type Editor } from './Editor';
 
 /** Pick radii in CSS pixels; fingers get more generous targets than a mouse. */
 const RADII = {
@@ -35,6 +37,16 @@ function segmentDistance(p: THREE.Vector2, a: THREE.Vector2, b: THREE.Vector2) {
   return a.clone().addScaledVector(ab, t).distanceTo(p);
 }
 
+/** How a selected part is moved: dragged over the surface only, or with a gizmo. */
+export type MoveMode = 'slide' | 'translate' | 'rotate';
+
+/** A spot on the model (or the ground, if there's no model) to put a part. */
+export interface Surface {
+  position: THREE.Vector3;
+  normal?: THREE.Vector3;
+  onModel: boolean;
+}
+
 const isTouch = (e: PointerEvent) => e.pointerType === 'touch' || e.pointerType === 'pen';
 const UP = new THREE.Vector3(0, 1, 0);
 
@@ -42,8 +54,9 @@ const UP = new THREE.Vector3(0, 1, 0);
  * Mouse, touch and keyboard handling for the viewport.
  *
  * Edit mode:
+ * - tap a sidebar part, then tap the model to place it there
  * - tap a part or wire to select it (the inspector then offers Delete)
- * - drag a part to slide it over the model; the gizmo still does precise moves
+ * - drag a part to slide it over the model; optional gizmos for free moves and rotation
  * - tap pin, tap pin to wire them, or drag from one pin to another
  * - drag a wire's end off its pin to remove it, or onto another pin to move it
  *
@@ -53,6 +66,9 @@ export class Interaction extends EventTarget {
   readonly gizmo: TransformControls;
   /** First pin of a wire started by tapping, waiting for the second tap. */
   pending: WireEnd | null = null;
+  /** Part type picked in the sidebar, waiting for a tap on the model. */
+  placing: PartType | null = null;
+  moveMode: MoveMode = 'slide';
 
   private readonly raycaster = new THREE.Raycaster();
   private readonly canvas: HTMLCanvasElement;
@@ -60,6 +76,8 @@ export class Interaction extends EventTarget {
   private readonly preview: THREE.Line;
   private hovered: WireEnd | null = null;
   private gesture: Gesture | null = null;
+  /** See-through preview of the part being placed, following the mouse. */
+  private ghost: Part | null = null;
 
   constructor(
     private readonly editor: Editor,
@@ -102,13 +120,88 @@ export class Interaction extends EventTarget {
     editor.addEventListener('change', () => this.syncSelection());
   }
 
-  setGizmoMode(mode: 'translate' | 'rotate') {
-    this.gizmo.setMode(mode);
+  setMoveMode(mode: MoveMode) {
+    this.moveMode = mode;
+    if (mode !== 'slide') this.gizmo.setMode(mode);
+    this.syncSelection();
     this.dispatchEvent(new Event('change'));
   }
 
-  get gizmoMode() {
-    return this.gizmo.mode as 'translate' | 'rotate';
+  // ---- placing from the sidebar ------------------------------------------
+
+  /** Arm a part type for placing; picking the same type again disarms it. */
+  startPlacing(type: PartType) {
+    const same = this.placing === type;
+    this.cancelPlacing();
+    if (same || this.editor.mode !== 'edit') return;
+    this.cancelWire();
+    this.editor.select(null);
+    this.placing = type;
+
+    this.ghost = partInfo(type).create('ghost');
+    this.ghost.root.scale.setScalar(PART_SCALE);
+    this.ghost.root.visible = false;
+    this.ghost.root.traverse((o) => {
+      if (o instanceof THREE.Mesh) {
+        for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+          m.transparent = true;
+          m.opacity = 0.45;
+          m.depthWrite = false;
+        }
+      }
+    });
+    this.viewport.scene.add(this.ghost.root);
+    this.dispatchEvent(new Event('change'));
+  }
+
+  cancelPlacing() {
+    if (!this.placing) return;
+    this.placing = null;
+    if (this.ghost) {
+      this.viewport.scene.remove(this.ghost.root);
+      this.ghost.dispose();
+      this.ghost = null;
+    }
+    this.canvas.style.cursor = '';
+    this.dispatchEvent(new Event('change'));
+  }
+
+  /**
+   * The surface under a screen point: the model if it's hit, otherwise the
+   * ground (`onModel` false). Normals face the viewer, since models are
+   * rendered double sided.
+   */
+  surfaceAt(ndc: THREE.Vector2): Surface {
+    this.raycaster.setFromCamera(ndc, this.viewport.camera);
+    const hit = this.editor.model ? this.raycaster.intersectObject(this.editor.model, true)[0] : undefined;
+    if (hit?.face) {
+      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
+      if (normal.dot(this.raycaster.ray.direction) > 0) normal.negate();
+      return { position: hit.point.clone(), normal, onModel: true };
+    }
+    const ground = this.raycaster.intersectObject(this.viewport.ground)[0];
+    return { position: ground ? ground.point.clone() : this.viewport.controls.target.clone(), onModel: false };
+  }
+
+  /** Put a part at a surface point, standing out of it and keeping its twist. */
+  private standOn(part: Part, s: Surface) {
+    part.root.position.copy(s.position);
+    const normal = s.normal ?? UP;
+    const up = UP.clone().applyQuaternion(part.root.quaternion);
+    part.root.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(up, normal));
+    part.root.updateMatrixWorld(true);
+  }
+
+  private place(e: PointerEvent) {
+    const s = this.surfaceAt(this.viewport.ndc(e));
+    // With a model loaded, parts go on the model; a miss just keeps waiting.
+    if (this.editor.model && !s.onModel) {
+      this.editor.toast('Tap on your model to place it there.');
+      return;
+    }
+    const type = this.placing!;
+    this.cancelPlacing();
+    this.editor.addPart(type, s.position, s.normal);
   }
 
   cancelWire() {
@@ -213,6 +306,12 @@ export class Interaction extends EventTarget {
       return;
     }
 
+    // While placing, a still tap places the part and a drag orbits the camera.
+    if (this.placing) {
+      this.gesture = { kind: 'press', hit: null, x: e.clientX, y: e.clientY, ours: false };
+      return;
+    }
+
     // Presses on the gizmo belong to the gizmo. On touch there's no hover
     // beforehand, so ask it directly whether this press would hit a handle.
     if (this.gizmo.object) {
@@ -290,7 +389,9 @@ export class Interaction extends EventTarget {
       case 'press': {
         // Only a short, still press is a tap; anything else was an orbit.
         const slop = RADII[isTouch(e) ? 'touch' : 'mouse'].slop;
-        if (Math.hypot(e.clientX - g.x, e.clientY - g.y) <= slop) this.onTap(g.hit);
+        if (Math.hypot(e.clientX - g.x, e.clientY - g.y) > slop) break;
+        if (this.placing) this.place(e);
+        else this.onTap(g.hit);
         break;
       }
 
@@ -360,6 +461,14 @@ export class Interaction extends EventTarget {
   // ---- wire previews & hover ---------------------------------------------
 
   private hover(e: PointerEvent) {
+    if (this.placing && this.ghost) {
+      const s = this.surfaceAt(this.viewport.ndc(e));
+      const show = s.onModel || !this.editor.model;
+      this.ghost.root.visible = show;
+      if (show) this.standOn(this.ghost, s);
+      this.canvas.style.cursor = show ? 'copy' : 'not-allowed';
+      return;
+    }
     if (this.editor.mode === 'simulate') {
       const part = this.pickPart(e);
       this.canvas.style.cursor = part instanceof Button || part instanceof Switch ? 'pointer' : '';
@@ -404,24 +513,13 @@ export class Interaction extends EventTarget {
 
   // ---- part dragging -----------------------------------------------------
 
-  /** Slide a part over the model's surface, or along a camera-facing plane off it. */
+  /**
+   * Slide a part over the model's surface. Off the model it stays put, so it
+   * never comes unstuck; with no model loaded it slides along the ground.
+   */
   private dragPart(part: Part, e: PointerEvent) {
-    this.raycaster.setFromCamera(this.viewport.ndc(e), this.viewport.camera);
-    const hit = this.editor.model ? this.raycaster.intersectObject(this.editor.model, true)[0] : undefined;
-    if (hit?.face) {
-      const normal = hit.face.normal.clone().transformDirection(hit.object.matrixWorld);
-      if (normal.dot(this.raycaster.ray.direction) > 0) normal.negate();
-      part.root.position.copy(hit.point);
-      // Stand the part up on the new surface, keeping its twist.
-      const up = UP.clone().applyQuaternion(part.root.quaternion);
-      part.root.quaternion.premultiply(new THREE.Quaternion().setFromUnitVectors(up, normal));
-    } else {
-      const normal = this.viewport.camera.getWorldDirection(new THREE.Vector3());
-      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, part.root.position);
-      const p = this.raycaster.ray.intersectPlane(plane, new THREE.Vector3());
-      if (p) part.root.position.copy(p);
-    }
-    part.root.updateMatrixWorld(true);
+    const s = this.surfaceAt(this.viewport.ndc(e));
+    if (s.onModel || !this.editor.model) this.standOn(part, s);
   }
 
   // ---- keyboard ----------------------------------------------------------
@@ -432,7 +530,8 @@ export class Interaction extends EventTarget {
 
     switch (e.key) {
       case 'Escape':
-        if (this.pending) this.cancelWire();
+        if (this.placing) this.cancelPlacing();
+        else if (this.pending) this.cancelWire();
         else this.editor.select(null);
         break;
       case 'Delete':
@@ -440,13 +539,17 @@ export class Interaction extends EventTarget {
         this.editor.deleteSelection();
         e.preventDefault();
         break;
+      case 'q':
+      case 'Q':
+        this.setMoveMode('slide');
+        break;
       case 'w':
       case 'W':
-        this.setGizmoMode('translate');
+        this.setMoveMode('translate');
         break;
       case 'e':
       case 'E':
-        this.setGizmoMode('rotate');
+        this.setMoveMode('rotate');
         break;
     }
   }
@@ -456,15 +559,17 @@ export class Interaction extends EventTarget {
   private syncSelection() {
     const sel = this.editor.selection;
     const part = this.editor.mode === 'edit' && sel?.kind === 'part' ? sel.part : null;
-    if (part) {
+    if (part && this.moveMode !== 'slide') {
       if (this.gizmo.object !== part.root) this.gizmo.attach(part.root);
-      this.selectionBox.setFromObject(part.root);
-      this.selectionBox.visible = true;
     } else {
       this.gizmo.detach();
-      this.selectionBox.visible = false;
     }
-    if (this.editor.mode === 'simulate') this.cancelWire();
+    this.selectionBox.visible = !!part;
+    if (part) this.selectionBox.setFromObject(part.root);
+    if (this.editor.mode === 'simulate') {
+      this.cancelWire();
+      this.cancelPlacing();
+    }
     // A part may have been deleted out from under a pending wire.
     if (this.pending && !this.editor.parts.has(this.pending.part.id)) this.cancelWire();
   }

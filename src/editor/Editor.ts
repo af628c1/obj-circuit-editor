@@ -11,7 +11,7 @@ import { diagnose, solve, type Diagnosis, type PartType } from '../sim/circuit';
 import { WIRE_COLORS, Wire, type WireEnd } from '../wires/Wire';
 
 /** Parts are modelled at roughly real size; scale them up so they read well on the model. */
-const PART_SCALE = 1.8;
+export const PART_SCALE = 1.8;
 
 export type Mode = 'edit' | 'simulate';
 export type Selection = { kind: 'part'; part: Part } | { kind: 'wire'; wire: Wire } | null;

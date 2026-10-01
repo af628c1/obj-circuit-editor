@@ -1,5 +1,5 @@
 import type { Editor } from '../editor/Editor';
-import type { Interaction } from '../editor/interaction';
+import type { Interaction, MoveMode } from '../editor/interaction';
 import { DELAY_RANGE, Delay } from '../parts/Delay';
 import { LED_COLORS, Led } from '../parts/Led';
 import type { Part } from '../parts/Part';
@@ -57,14 +57,15 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
           ? `<div class="row"><span class="label">Delay <span class="value" data-delay-value>${seconds(part.delayMs)}</span></span>
               <input type="range" data-delay min="${DELAY_RANGE.min}" max="${DELAY_RANGE.max}" step="${DELAY_RANGE.step}" value="${part.delayMs}" aria-label="Delay time" /></div>`
           : '';
-      const mode = interaction.gizmoMode;
+      const mode = interaction.moveMode;
       el.innerHTML = `
         <div class="inspector-head"><h2>${partInfo(part.type).name}</h2><span class="id">${part.id}</span></div>
         <div class="row">
-          <span class="label">Transform</span>
+          <span class="label">Move by</span>
           <div class="segmented">
-            <button data-gizmo="translate" aria-selected="${mode === 'translate'}">Move <kbd>W</kbd></button>
-            <button data-gizmo="rotate" aria-selected="${mode === 'rotate'}">Rotate <kbd>E</kbd></button>
+            <button data-move="slide" aria-selected="${mode === 'slide'}" title="Drag the part over the model's surface (Q)">Sliding</button>
+            <button data-move="translate" aria-selected="${mode === 'translate'}" title="Arrows for moving freely in 3D (W)">Arrows</button>
+            <button data-move="rotate" aria-selected="${mode === 'rotate'}" title="Rings for rotating (E)">Rotate</button>
           </div>
         </div>
         ${colorRow}${switchRow}${delayRow}
@@ -86,7 +87,7 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
     if (!t) return;
     const sel = editor.selection;
     if (t.dataset.action === 'delete') editor.deleteSelection();
-    if (t.dataset.gizmo) interaction.setGizmoMode(t.dataset.gizmo as 'translate' | 'rotate');
+    if (t.dataset.move) interaction.setMoveMode(t.dataset.move as MoveMode);
     if (t.dataset.switch && sel?.kind === 'part' && sel.part instanceof Switch) {
       sel.part.closed = t.dataset.switch === 'on';
       render();
