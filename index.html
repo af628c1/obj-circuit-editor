@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>OBJ Circuits</title>
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' rx='8' fill='%233b82f6'/><circle cx='16' cy='14' r='6' fill='white'/><path d='M13 20v6M19 20v4' stroke='white' stroke-width='2.5' stroke-linecap='round'/></svg>" />
+  </head>
+  <body>
+    <div class="app">
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark"></span>
+          <span>OBJ Circuits</span>
+        </div>
+        <div class="topbar-center">
+          <div class="segmented" id="mode-toggle" role="tablist" aria-label="Mode">
+            <button data-mode="edit" role="tab">Edit</button>
+            <button data-mode="simulate" role="tab">
+              <svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path d="M4 2.5v11l9-5.5z" fill="currentColor"/></svg>
+              Simulate
+            </button>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-icon" id="xray" aria-pressed="false" title="X-ray: see wiring through the model">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"><path d="M1.5 10S4.5 4 10 4s8.5 6 8.5 6-3 6-8.5 6S1.5 10 1.5 10z"/><circle cx="10" cy="10" r="2.6"/></svg>
+            X-ray
+          </button>
+          <button class="btn" id="open-obj">
+            <svg viewBox="0 0 20 20" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13V3M6 7l4-4 4 4M3 13v3a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-3"/></svg>
+            Open .obj
+          </button>
+          <input type="file" id="file-input" accept=".obj" hidden />
+        </div>
+      </header>
+
+      <aside class="sidebar">
+        <h2 class="sidebar-title">Components</h2>
+        <p class="sidebar-sub">Drag onto the workspace, or click to add.</p>
+        <div id="palette" class="palette"></div>
+        <div class="sidebar-footer">
+          <h3>Shortcuts</h3>
+          <dl class="keys">
+            <dt><kbd>W</kbd></dt><dd>Move</dd>
+            <dt><kbd>E</kbd></dt><dd>Rotate</dd>
+            <dt><kbd>Del</kbd></dt><dd>Delete selected</dd>
+            <dt><kbd>Esc</kbd></dt><dd>Cancel / deselect</dd>
+          </dl>
+        </div>
+      </aside>
+
+      <main class="stage" id="stage">
+        <div id="viewport" class="viewport"></div>
+
+        <div id="empty-state" class="empty-state">
+          <div class="empty-card">
+            <svg viewBox="0 0 48 48" width="44" height="44" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M24 4 42 14v20L24 44 6 34V14z"/><path d="M6 14l18 10 18-10M24 24v20"/></svg>
+            <h1>Start with a 3D model</h1>
+            <p>Drop an <strong>.obj</strong> file anywhere here, then add components on top of it.</p>
+            <div class="empty-actions">
+              <button class="btn btn-primary" id="empty-open">Open .obj file</button>
+              <button class="btn" id="load-sample">Try a sample</button>
+            </div>
+          </div>
+        </div>
+
+        <div id="inspector" class="inspector" hidden></div>
+        <div id="hint" class="hint"></div>
+        <div id="drop-overlay" class="drop-overlay" hidden><span>Drop to load model</span></div>
+        <div id="toasts" class="toasts" aria-live="polite"></div>
+      </main>
+    </div>
+    <script type="module" src="/src/main.ts"></script>
+  </body>
+</html>
