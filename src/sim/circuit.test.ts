@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { solve, type SimPart, type SimWire } from './circuit';
+import { diagnose, solve, type SimPart, type SimWire } from './circuit';
 
 const w = (a: string, b: string): SimWire => {
   const [ap, an] = a.split(':');
@@ -67,5 +67,31 @@ describe('solve', () => {
       [w('bat:pos', 'led:anode'), w('led:anode', 'led:cathode')],
     );
     expect(r.lit.size).toBe(0);
+  });
+});
+
+describe('diagnose', () => {
+  it('spots a missing battery', () => {
+    expect(
+      diagnose(
+        [{ id: 'led', type: 'led' }, { id: 'btn', type: 'button', pressed: true }],
+        [w('btn:a', 'led:anode'), w('led:cathode', 'btn:b')],
+      ),
+    ).toEqual({ kind: 'no-battery' });
+  });
+
+  it('spots a backwards LED', () => {
+    expect(
+      diagnose(
+        [{ id: 'bat', type: 'battery' }, { id: 'led', type: 'led' }],
+        [w('bat:pos', 'led:cathode'), w('led:anode', 'bat:neg')],
+      ),
+    ).toEqual({ kind: 'reversed', led: 'led' });
+  });
+
+  it('falls back to an open circuit', () => {
+    expect(
+      diagnose([{ id: 'bat', type: 'battery' }, { id: 'led', type: 'led' }], [w('bat:pos', 'led:anode')]),
+    ).toEqual({ kind: 'open' });
   });
 });

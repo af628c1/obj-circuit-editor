@@ -5,7 +5,7 @@ import type { Part } from '../parts/Part';
 import { partInfo } from '../parts/registry';
 import { disposeModel } from '../scene/modelLoader';
 import type { Viewport } from '../scene/Viewport';
-import { solve, type PartType } from '../sim/circuit';
+import { diagnose, solve, type Diagnosis, type PartType } from '../sim/circuit';
 import { WIRE_COLORS, Wire, type WireEnd } from '../wires/Wire';
 
 /** Parts are modelled at roughly real size; scale them up so they read well on the model. */
@@ -149,35 +149,64 @@ export class Editor extends EventTarget {
     if (mode === 'simulate') this.select(null);
     for (const p of this.parts.values()) if (p instanceof Button) p.pressed = false;
     this.shorted.clear();
-    this.simulate();
+    this.simulate(mode === 'simulate' ? 'enter' : undefined);
     this.emit();
   }
 
   setButtonPressed(button: Button, pressed: boolean) {
     if (button.pressed === pressed) return;
     button.pressed = pressed;
-    this.simulate();
+    this.simulate(pressed ? 'press' : undefined);
   }
 
-  /** Re-solve the circuit and push the result into the parts. */
-  simulate() {
+  /**
+   * Re-solve the circuit and push the result into the parts. `reason` says
+   * what the user just did, so we can explain why nothing lit up.
+   */
+  simulate(reason?: 'enter' | 'press') {
     const leds = [...this.parts.values()].filter((p): p is Led => p instanceof Led);
     if (this.mode !== 'simulate') {
       for (const l of leds) l.lit = false;
       return;
     }
-    const result = solve(
-      [...this.parts.values()].map((p) => ({ id: p.id, type: p.type, pressed: p instanceof Button && p.pressed })),
-      this.wires.map((w) => ({
-        a: { part: w.from.part.id, pin: w.from.pin },
-        b: { part: w.to.part.id, pin: w.to.pin },
-      })),
-    );
+    const parts = [...this.parts.values()].map((p) => ({
+      id: p.id,
+      type: p.type,
+      pressed: p instanceof Button && p.pressed,
+    }));
+    const wires = this.wires.map((w) => ({
+      a: { part: w.from.part.id, pin: w.from.pin },
+      b: { part: w.to.part.id, pin: w.to.pin },
+    }));
+    const result = solve(parts, wires);
     for (const l of leds) l.lit = result.lit.has(l.id);
     for (const id of result.shorted) {
       if (!this.shorted.has(id)) this.toast(`Short circuit! ${id}'s + and − are connected directly.`, 'warn');
     }
     this.shorted = result.shorted;
+
+    if (reason && result.lit.size === 0 && result.shorted.size === 0) {
+      const d = diagnose(parts, wires);
+      // On entering, an open loop is expected (buttons aren't pressed yet).
+      if (reason === 'press' || d.kind === 'no-battery' || d.kind === 'no-led') this.hint(d);
+    }
+  }
+
+  private lastHint = { text: '', at: 0 };
+
+  private hint(d: Diagnosis) {
+    const text = {
+      'no-battery':
+        'Nothing is powering the circuit. Add a 9V battery: wire + → button → LED long leg (red pin), then LED short leg → battery −.',
+      'no-led': 'Add an LED so you can see the circuit work.',
+      reversed: `${'led' in d ? d.led : 'The LED'} is backwards: its long leg (red pin) must lead toward the battery's +.`,
+      open: "The loop isn't closed. Follow it: battery + → button → LED long leg (red pin) → LED short leg → battery −.",
+    }[d.kind];
+    // Don't repeat the same hint on every button press.
+    const now = performance.now();
+    if (text === this.lastHint.text && now - this.lastHint.at < 8000) return;
+    this.lastHint = { text, at: now };
+    this.toast(text, 'warn');
   }
 
   // ---- events ------------------------------------------------------------

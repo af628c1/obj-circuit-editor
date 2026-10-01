@@ -120,3 +120,29 @@ export function solve(parts: SimPart[], wires: SimWire[]): SimResult {
 
   return { lit, shorted };
 }
+
+export type Diagnosis =
+  | { kind: 'no-battery' }
+  | { kind: 'no-led' }
+  | { kind: 'reversed'; led: string }
+  | { kind: 'open' };
+
+/**
+ * Explain why no LED is lit, so the user isn't left guessing. Only meaningful
+ * when `solve` lit nothing and nothing is shorted.
+ */
+export function diagnose(parts: SimPart[], wires: SimWire[]): Diagnosis {
+  if (!parts.some((p) => p.type === 'battery')) return { kind: 'no-battery' };
+  const leds = parts.filter((p) => p.type === 'led');
+  if (leds.length === 0) return { kind: 'no-led' };
+
+  // Would an LED light if it were turned around?
+  const flip: Record<string, string> = { anode: 'cathode', cathode: 'anode' };
+  for (const led of leds) {
+    const swap = (r: PinRef): PinRef => (r.part === led.id ? { part: r.part, pin: flip[r.pin] } : r);
+    if (solve(parts, wires.map((w) => ({ a: swap(w.a), b: swap(w.b) }))).lit.has(led.id)) {
+      return { kind: 'reversed', led: led.id };
+    }
+  }
+  return { kind: 'open' };
+}

@@ -525,6 +525,8 @@ kbd {
 }
 
 .toast {
+  max-width: min(520px, calc(100vw - 32px));
+  text-align: center;
   padding: 8px 14px;
   border-radius: 8px;
   background: var(--text);

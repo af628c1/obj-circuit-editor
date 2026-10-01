@@ -19,6 +19,7 @@ export function mountToasts(el: HTMLElement, editor: Editor) {
     t.className = `toast ${level}`;
     t.textContent = message;
     el.appendChild(t);
-    setTimeout(() => t.remove(), level === 'warn' ? 4000 : 2600);
+    // Long hints stay up long enough to read.
+    setTimeout(() => t.remove(), Math.max(level === 'warn' ? 4000 : 2600, message.length * 55));
   });
 }
