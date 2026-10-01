@@ -23,7 +23,11 @@ Built with Vite, TypeScript and three.js, with no UI framework.
 
 ## Deploying
 
-`.github/workflows/deploy.yml` builds the site and publishes it to GitHub Pages on every push to `main` (and to the development branch). To turn it on once, go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
+`.github/workflows/deploy.yml` builds the site and publishes it to GitHub Pages on every push to `main` (and to the development branch).
+
+To set it up once, go to **Settings → Pages → Build and deployment** and set **Source** to **GitHub Actions**.
+
+> Don't use "Deploy from a branch". That publishes the unbuilt source, which shows up as an unstyled page that doesn't work. The app has to be built by Vite first, and the workflow does that for you.
 
 ## Code map
 
