@@ -93,14 +93,14 @@ export class Editor extends EventTarget {
 
   // ---- wires -------------------------------------------------------------
 
-  addWire(from: WireEnd, to: WireEnd): Wire | null {
+  addWire(from: WireEnd, to: WireEnd, color?: number): Wire | null {
     if (from.part === to.part && from.pin === to.pin) return null;
     const same = (a: WireEnd, b: WireEnd) => a.part === b.part && a.pin === b.pin;
     if (this.wires.some((w) => (same(w.from, from) && same(w.to, to)) || (same(w.from, to) && same(w.to, from)))) {
       this.toast('Those pins are already connected.');
       return null;
     }
-    const color = WIRE_COLORS[this.wireCounter % WIRE_COLORS.length];
+    color ??= WIRE_COLORS[this.wireCounter % WIRE_COLORS.length];
     const wire = new Wire(`wire-${++this.wireCounter}`, from, to, color);
     this.wires.push(wire);
     this.wiresGroup.add(wire.mesh);
@@ -122,8 +122,10 @@ export class Editor extends EventTarget {
     }
   }
 
-  wireMeshes(): THREE.Object3D[] {
-    return this.wires.map((w) => w.mesh);
+  /** Wires attached to a given pin, oldest first. */
+  wiresAt(end: WireEnd): Wire[] {
+    const at = (e: WireEnd) => e.part === end.part && e.pin === end.pin;
+    return this.wires.filter((w) => at(w.from) || at(w.to));
   }
 
   // ---- selection ---------------------------------------------------------

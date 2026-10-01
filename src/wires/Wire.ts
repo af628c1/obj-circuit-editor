@@ -31,6 +31,8 @@ export function wireCurve(
 
 export class Wire {
   readonly mesh: THREE.Mesh;
+  /** The path the wire currently follows, for hit testing. */
+  curve: THREE.CatmullRomCurve3 | null = null;
   private readonly material: THREE.MeshStandardMaterial;
   private readonly lastA = new THREE.Vector3(NaN);
   private readonly lastB = new THREE.Vector3(NaN);
@@ -47,6 +49,11 @@ export class Wire {
     this.mesh = new THREE.Mesh(new THREE.BufferGeometry(), this.material);
     this.mesh.userData.wireId = id;
     this.update();
+  }
+
+  /** The end of this wire that isn't `end`. */
+  otherEnd(end: WireEnd): WireEnd {
+    return this.from.part === end.part && this.from.pin === end.pin ? this.to : this.from;
   }
 
   connects(part: Part) {
@@ -73,7 +80,8 @@ export class Wire {
     this.lastDirB.copy(bDir);
 
     this.mesh.geometry.dispose();
-    this.mesh.geometry = new THREE.TubeGeometry(wireCurve(a, aDir, b, bDir), 48, RADIUS, 8, false);
+    this.curve = wireCurve(a, aDir, b, bDir);
+    this.mesh.geometry = new THREE.TubeGeometry(this.curve, 48, RADIUS, 8, false);
   }
 
   setSelected(on: boolean) {

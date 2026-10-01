@@ -132,7 +132,9 @@ function renderChrome() {
   else if (editor.mode === 'simulate') hint.innerHTML = '<strong>Click and hold</strong> a push button to press it';
   else if (interaction.pending) hint.innerHTML = 'Click another pin to connect · <strong>Esc</strong> to cancel';
   else if (editor.parts.size === 0) hint.innerHTML = 'Drag components from the sidebar onto your model';
-  else hint.innerHTML = '<strong>Click a pin</strong> to start a wire · drag to orbit · scroll to zoom';
+  else if (editor.selection?.kind === 'wire') hint.innerHTML = 'Drag either end off its pin to remove the wire';
+  else if (editor.selection?.kind === 'part') hint.innerHTML = '<strong>Drag</strong> the part to move it · use the arrows for precise moves';
+  else hint.innerHTML = '<strong>Drag from a pin</strong> to another pin to wire them · tap a part or wire to select it';
 }
 
 editor.addEventListener('change', renderChrome);

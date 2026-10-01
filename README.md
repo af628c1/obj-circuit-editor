@@ -8,7 +8,8 @@ Like Tinkercad Circuits, but on top of your own 3D models. Load an `.obj` file, 
 - **Materials.** Select or drop the `.mtl` and its texture images together with the `.obj` (pick several files at once) to keep the model's colors and textures. A `.zip` containing the model works too: folders inside it don't matter, and if it holds several `.obj` files the largest one is loaded. If something it references is missing, you'll get a heads-up, and models without an `.mtl` render in neutral grey.
 - **Components.** LED (with color choice), push button and 9V battery. Drag them from the sidebar onto the model and they land on the surface you drop them on. You can also click a component to add it.
 - **Move and rotate.** Select a part, then press <kbd>W</kbd> to move or <kbd>E</kbd> to rotate with the gizmo. <kbd>Del</kbd> deletes the selection.
-- **Wires.** Click a pin, then click another pin. <kbd>Esc</kbd> cancels. Use **X-ray** to see wiring that runs inside the model.
+- **Selecting.** Tap or click a part or wire to select it; the panel on the right shows its details and a Delete button (or press <kbd>Del</kbd>). Drag a part to slide it over the model.
+- **Wires.** Drag from one pin to another, or tap one pin then the other. To remove a wire, drag either end off its pin. Drop it on a different pin to move it instead. Use **X-ray** to see wiring that runs inside the model. Pins and wires have larger touch targets for fingers.
 - **Simulate.** Switch to **Simulate**, then click and hold a push button. An LED lights when it sits on a closed loop from the battery's + to its − with the right polarity, so the long leg (anode) goes toward +. A short across the battery shows a warning.
 
 ## Development
