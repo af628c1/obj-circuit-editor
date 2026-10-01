@@ -12,6 +12,8 @@ import { WIRE_COLORS, Wire, type WireEnd } from '../wires/Wire';
 
 /** Parts are modelled at roughly real size; scale them up so they read well on the model. */
 export const PART_SCALE = 1.8;
+/** Range for the user-facing part size (1 = 100%). */
+export const SIZE_RANGE = { min: 0.2, max: 5 };
 
 export type Mode = 'edit' | 'simulate';
 export type Selection = { kind: 'part'; part: Part } | { kind: 'wire'; wire: Wire } | null;
@@ -27,6 +29,8 @@ export class Editor extends EventTarget {
   readonly wires: Wire[] = [];
   selection: Selection = null;
   mode: Mode = 'edit';
+  /** Size new parts are given: the last size the user picked. */
+  defaultSize = 1;
 
   private readonly partsGroup = new THREE.Group();
   private readonly wiresGroup = new THREE.Group();
@@ -67,7 +71,8 @@ export class Editor extends EventTarget {
     const n = (this.counters.get(type) ?? 0) + 1;
     this.counters.set(type, n);
     const part = partInfo(type).create(`${type}-${n}`);
-    part.root.scale.setScalar(PART_SCALE);
+    part.size = this.defaultSize;
+    part.root.scale.setScalar(PART_SCALE * part.size);
     part.root.position.copy(position ?? this.viewport.controls.target);
     if (normal) part.root.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), normal.clone().normalize());
     this.partsGroup.add(part.root);
@@ -76,6 +81,25 @@ export class Editor extends EventTarget {
     this.select({ kind: 'part', part });
     this.simulate();
     return part;
+  }
+
+  /**
+   * Resize a part (and remember the size for new parts). Pass `notify: false`
+   * while a slider is being dragged, then notify once at the end.
+   */
+  setPartSize(part: Part, size: number, notify = true) {
+    size = THREE.MathUtils.clamp(size, SIZE_RANGE.min, SIZE_RANGE.max);
+    part.size = size;
+    part.root.scale.setScalar(PART_SCALE * size);
+    part.root.updateMatrixWorld(true);
+    this.defaultSize = size;
+    if (notify) this.emit();
+  }
+
+  /** Give every part the same size. */
+  setAllPartSizes(size: number) {
+    for (const p of this.parts.values()) this.setPartSize(p, size, false);
+    this.emit();
   }
 
   removePart(part: Part) {

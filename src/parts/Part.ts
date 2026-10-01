@@ -15,6 +15,8 @@ const HIGHLIGHT = new THREE.Color(0x3b82f6);
 export abstract class Part {
   readonly root = new THREE.Group();
   readonly pins: Pin[] = [];
+  /** Size relative to the default, set by the user (1 = 100%). */
+  size = 1;
 
   constructor(
     readonly id: string,

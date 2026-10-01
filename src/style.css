@@ -499,6 +499,21 @@ kbd {
   color: var(--text);
 }
 
+.link-btn {
+  margin-top: 6px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.link-btn:hover {
+  text-decoration: underline;
+}
+
 .swatches {
   display: flex;
   gap: 8px;

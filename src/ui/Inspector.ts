@@ -1,4 +1,4 @@
-import type { Editor } from '../editor/Editor';
+import { SIZE_RANGE, type Editor } from '../editor/Editor';
 import type { Interaction, MoveMode } from '../editor/interaction';
 import { DELAY_RANGE, Delay } from '../parts/Delay';
 import { LED_COLORS, Led } from '../parts/Led';
@@ -6,6 +6,11 @@ import type { Part } from '../parts/Part';
 import { partInfo } from '../parts/registry';
 import { Switch } from '../parts/Switch';
 
+// The size slider is logarithmic so 20%–500% feels even, with 100% in the middle.
+const LOG_RANGE = Math.log(SIZE_RANGE.max / SIZE_RANGE.min);
+const sliderToSize = (v: number) => SIZE_RANGE.min * Math.exp((v / 1000) * LOG_RANGE);
+const sizeToSlider = (size: number) => Math.round((Math.log(size / SIZE_RANGE.min) / LOG_RANGE) * 1000);
+const percent = (size: number) => `${Math.round(size * 100)}%`;
 const seconds = (ms: number) => `${(ms / 1000).toFixed(1)} s`;
 const hex = (n: number) => `#${n.toString(16).padStart(6, '0')}`;
 
@@ -68,6 +73,11 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
             <button data-move="rotate" aria-selected="${mode === 'rotate'}" title="Rings for rotating (E)">Rotate</button>
           </div>
         </div>
+        <div class="row">
+          <span class="label">Size <span class="value" data-size-value>${percent(part.size)}</span></span>
+          <input type="range" data-size min="0" max="1000" step="1" value="${sizeToSlider(part.size)}" aria-label="Part size" />
+          <button class="link-btn" data-action="size-all" title="Give every part this size">Same size for all parts</button>
+        </div>
         ${colorRow}${switchRow}${delayRow}
         <div class="row">
           <span class="label">Pins</span>
@@ -87,6 +97,10 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
     if (!t) return;
     const sel = editor.selection;
     if (t.dataset.action === 'delete') editor.deleteSelection();
+    if (t.dataset.action === 'size-all' && sel?.kind === 'part') {
+      editor.setAllPartSizes(sel.part.size);
+      editor.toast(`All parts set to ${percent(sel.part.size)}`);
+    }
     if (t.dataset.move) interaction.setMoveMode(t.dataset.move as MoveMode);
     if (t.dataset.switch && sel?.kind === 'part' && sel.part instanceof Switch) {
       sel.part.closed = t.dataset.switch === 'on';
@@ -102,9 +116,19 @@ export function mountInspector(el: HTMLElement, editor: Editor, interaction: Int
   el.addEventListener('input', (e) => {
     const input = e.target as HTMLInputElement;
     const sel = editor.selection;
+    if (input.matches('[data-size]') && sel?.kind === 'part') {
+      editor.setPartSize(sel.part, sliderToSize(Number(input.value)), false);
+      el.querySelector('[data-size-value]')!.textContent = percent(sel.part.size);
+      return;
+    }
     if (!input.matches('[data-delay]') || sel?.kind !== 'part' || !(sel.part instanceof Delay)) return;
     sel.part.delayMs = Number(input.value);
     el.querySelector('[data-delay-value]')!.textContent = seconds(sel.part.delayMs);
+  });
+
+  // Re-render once the size slider is released (e.g. to refresh anything else shown).
+  el.addEventListener('change', (e) => {
+    if ((e.target as HTMLElement).matches('[data-size]')) render();
   });
 
   editor.addEventListener('change', render);

@@ -19,9 +19,10 @@ export function wireCurve(
   aDir: THREE.Vector3,
   b: THREE.Vector3,
   bDir: THREE.Vector3,
+  size = 1,
 ): THREE.CatmullRomCurve3 {
   const dist = a.distanceTo(b);
-  const lead = THREE.MathUtils.clamp(dist * 0.25, 0.03, 0.15);
+  const lead = THREE.MathUtils.clamp(dist * 0.25, 0.03 * size, 0.15 * size);
   const a1 = a.clone().addScaledVector(aDir, lead);
   const b1 = b.clone().addScaledVector(bDir, lead);
   const mid = a1.clone().add(b1).multiplyScalar(0.5);
@@ -38,6 +39,7 @@ export class Wire {
   private readonly lastB = new THREE.Vector3(NaN);
   private readonly lastDirA = new THREE.Vector3();
   private readonly lastDirB = new THREE.Vector3();
+  private lastSize = NaN;
 
   constructor(
     readonly id: string,
@@ -60,8 +62,10 @@ export class Wire {
     return this.from.part === part || this.to.part === part;
   }
 
-  /** Rebuild the tube if either end has moved. Cheap to call every frame. */
+  /** Rebuild the tube if either end has moved or resized. Cheap to call every frame. */
   update() {
+    // Wires are as thick as the parts they join are big.
+    const size = Math.sqrt(this.from.part.size * this.to.part.size);
     const a = this.from.part.pinWorldPosition(this.from.pin);
     const b = this.to.part.pinWorldPosition(this.to.pin);
     const aDir = this.from.part.pinWorldDirection(this.from.pin);
@@ -70,7 +74,8 @@ export class Wire {
       a.equals(this.lastA) &&
       b.equals(this.lastB) &&
       aDir.equals(this.lastDirA) &&
-      bDir.equals(this.lastDirB)
+      bDir.equals(this.lastDirB) &&
+      size === this.lastSize
     ) {
       return;
     }
@@ -78,10 +83,11 @@ export class Wire {
     this.lastB.copy(b);
     this.lastDirA.copy(aDir);
     this.lastDirB.copy(bDir);
+    this.lastSize = size;
 
     this.mesh.geometry.dispose();
-    this.curve = wireCurve(a, aDir, b, bDir);
-    this.mesh.geometry = new THREE.TubeGeometry(this.curve, 48, RADIUS, 8, false);
+    this.curve = wireCurve(a, aDir, b, bDir, size);
+    this.mesh.geometry = new THREE.TubeGeometry(this.curve, 48, RADIUS * size, 8, false);
   }
 
   setSelected(on: boolean) {

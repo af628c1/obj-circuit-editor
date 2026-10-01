@@ -139,7 +139,7 @@ export class Interaction extends EventTarget {
     this.placing = type;
 
     this.ghost = partInfo(type).create('ghost');
-    this.ghost.root.scale.setScalar(PART_SCALE);
+    this.ghost.root.scale.setScalar(PART_SCALE * this.editor.defaultSize);
     this.ghost.root.visible = false;
     this.ghost.root.traverse((o) => {
       if (o instanceof THREE.Mesh) {
